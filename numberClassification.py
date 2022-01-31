@@ -1,10 +1,12 @@
 import random
+from turtle import screensize
 import numpy as np
 import math
 import pygame
+from pyparsing import White
 #first and last are input and output nodes, so no w+b apply
-nodeStructure = [6,5, 9]
-WINDOW_SIZE = (800, 800)
+nodeStructure = [6,5,9]
+WINDOW_SIZE = WIDTH, HEIGHT = 800,800
 class Node():
     nodes = []
     def __init__(self, layer, amount):
@@ -41,8 +43,26 @@ class Node():
                 for idx, weight in enumerate(node.weight):
                     idx
 class Render:
+    global WHITE
+    WHITE = (255,255,255)
     def DrawWindow():
-        None
+        #draw NN to surface
+        neuralNetworkSize = (800, 800)
+        neuralNetworkSurface = pygame.Surface(neuralNetworkSize)
+        neuralNetworkPosition = (0,0)
+        neuronPadding = 10
+        neuronRadius = 10
+        neuronWidth = (neuralNetworkSize[0]-neuronPadding)/len(nodeStructure)
+        for idx, node in enumerate(Node.nodes):
+            pygame.draw.circle(neuralNetworkSurface, WHITE, ((neuronWidth*node.layer), 100), neuronRadius)
+            print(node.layer)
+        
+            
+
+
+        #draw all surfaces to the screen
+        SCREEN.blit(neuralNetworkSurface, neuralNetworkPosition)
+        
 
 def Initialize():
     #create every node with weights and biases
@@ -50,11 +70,10 @@ def Initialize():
         for amount in range(nodeAmount):
             Node(layer, amount)
     pygame.display.init()
-    pygame.display.set_mode(WINDOW_SIZE)
+    global SCREEN
+    SCREEN = pygame.display.set_mode(WINDOW_SIZE)
 
 Initialize()
-for node in Node.nodes:
-    print(node.bias)
 
 run = True
 while run:
