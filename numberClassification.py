@@ -5,7 +5,7 @@ import math
 import pygame
 from pyparsing import White
 #first and last are input and output nodes, so no w+b apply
-nodeStructure = [30,20,50]
+nodeStructure = [10,30,10]
 WINDOW_SIZE = WIDTH, HEIGHT = 800,800
 class Node():
     nodes = []
@@ -48,16 +48,24 @@ class Render:
     WHITE = (255,255,255)
     def DrawWindow():
         #draw NN to surface
-        neuralNetworkSize = (800, 800)
+        neuralNetworkSize = (500, 500)
         neuralNetworkSurface = pygame.Surface(neuralNetworkSize)
         neuralNetworkPosition = (0,0)
-        neuronRadius = 10
-        neuronWidthOffset = (neuralNetworkSize[0])/(len(nodeStructure)+1)
-        for idx, node in enumerate(Node.nodes):
-            neuronHeightOffset = (neuralNetworkSize[1])/(nodeStructure[node.layer]+1)
-            pygame.draw.circle(neuralNetworkSurface, WHITE, ((neuronWidthOffset*(node.layer+1)), (neuronHeightOffset*(node.id+1))), neuronRadius)
-            print(node.layer)
+        neuronRadius = 2
         
+        for idx, node in enumerate(Node.nodes):
+            #Print all neurons
+            #color should be represantative of bias
+            neuronWidthOffset = ((neuralNetworkSize[0])/(len(nodeStructure)+1))*(node.layer+1)
+            neuronHeightOffset = ((neuralNetworkSize[1])/(nodeStructure[node.layer]+1))*(node.id+1)
+            pygame.draw.circle(neuralNetworkSurface, WHITE, ((neuronWidthOffset), (neuronHeightOffset)), neuronRadius)
+            #print all links
+            #color should be representative of weight
+            n=0
+            for idx, toNode in enumerate(Node.nodes):
+                if toNode.layer == node.layer+1:
+                    pygame.draw.line(neuralNetworkSurface, WHITE, (neuronWidthOffset, neuronHeightOffset), (400,400))
+                    n+=1
             
 
 
