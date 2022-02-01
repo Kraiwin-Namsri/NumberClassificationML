@@ -5,7 +5,7 @@ import math
 import pygame
 from pyparsing import White
 #first and last are input and output nodes, so no w+b apply
-nodeStructure = [6,5,9]
+nodeStructure = [30,20,50]
 WINDOW_SIZE = WIDTH, HEIGHT = 800,800
 class Node():
     nodes = []
@@ -21,6 +21,7 @@ class Node():
         else:
             self.weight = None
             self.bias = None
+        self.id = amount
         Node.nodes.append(self)
     def RandomWeights(amountWeights):
         weights = []
@@ -50,11 +51,11 @@ class Render:
         neuralNetworkSize = (800, 800)
         neuralNetworkSurface = pygame.Surface(neuralNetworkSize)
         neuralNetworkPosition = (0,0)
-        neuronPadding = 10
         neuronRadius = 10
-        neuronWidth = (neuralNetworkSize[0]-neuronPadding)/len(nodeStructure)
+        neuronWidthOffset = (neuralNetworkSize[0])/(len(nodeStructure)+1)
         for idx, node in enumerate(Node.nodes):
-            pygame.draw.circle(neuralNetworkSurface, WHITE, ((neuronWidth*node.layer), 100), neuronRadius)
+            neuronHeightOffset = (neuralNetworkSize[1])/(nodeStructure[node.layer]+1)
+            pygame.draw.circle(neuralNetworkSurface, WHITE, ((neuronWidthOffset*(node.layer+1)), (neuronHeightOffset*(node.id+1))), neuronRadius)
             print(node.layer)
         
             
