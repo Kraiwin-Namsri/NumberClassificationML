@@ -5,14 +5,16 @@ import math
 import pygame
 from pyparsing import White
 #first and last are input and output nodes, so no w+b apply
-nodeStructure = [10,30,10]
-WINDOW_SIZE = WIDTH, HEIGHT = 800,800
+nodeStructure = [576,24,10]
+WINDOW_SIZE = WIDTH, HEIGHT = 1600,1200
 class Node():
     nodes = []
     def __init__(self, layer, amount):
         self.layer = layer
         self.input = 0
         self.output = 0
+        self.positionX = None
+        self.positionY = None
         if layer != 0 and (layer != len(nodeStructure)-1):
             #amount of weight needs to be the same amount as in previous layer.
             self.weight = Node.RandomWeights(nodeStructure[layer-1])
@@ -48,24 +50,25 @@ class Render:
     WHITE = (255,255,255)
     def DrawWindow():
         #draw NN to surface
-        neuralNetworkSize = (500, 500)
+        neuralNetworkSize = (400, 400)
         neuralNetworkSurface = pygame.Surface(neuralNetworkSize)
         neuralNetworkPosition = (0,0)
-        neuronRadius = 2
+        neuronRadius = 5
         
         for idx, node in enumerate(Node.nodes):
             #Print all neurons
             #color should be represantative of bias
-            neuronWidthOffset = ((neuralNetworkSize[0])/(len(nodeStructure)+1))*(node.layer+1)
-            neuronHeightOffset = ((neuralNetworkSize[1])/(nodeStructure[node.layer]+1))*(node.id+1)
-            pygame.draw.circle(neuralNetworkSurface, WHITE, ((neuronWidthOffset), (neuronHeightOffset)), neuronRadius)
+            node.positionX = ((neuralNetworkSize[0])/(len(nodeStructure)+1))*(node.layer+1)
+            node.positionY = ((neuralNetworkSize[1])/(nodeStructure[node.layer]+1))*(node.id+1)
+            
+            pygame.draw.circle(neuralNetworkSurface, WHITE, (node.positionX, node.positionY), neuronRadius)
             #print all links
             #color should be representative of weight
-            n=0
+        for idx, node in enumerate(Node.nodes):
             for idx, toNode in enumerate(Node.nodes):
                 if toNode.layer == node.layer+1:
-                    pygame.draw.line(neuralNetworkSurface, WHITE, (neuronWidthOffset, neuronHeightOffset), (400,400))
-                    n+=1
+                    pygame.draw.line(neuralNetworkSurface, WHITE, (node.positionX, node.positionY), (toNode.positionX, toNode.positionY))
+                    
             
 
 
