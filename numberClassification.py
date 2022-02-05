@@ -1,11 +1,11 @@
 import random
 import math
 import pygame
-import csv
+from mnist import MNIST
 
 #first and last are input and output nodes, so no w+b apply
-nodeStructure = [10,24,10]
-WINDOW_SIZE = WIDTH, HEIGHT = 1600,1200
+nodeStructure = [1,2,3]
+WINDOW_SIZE = WIDTH, HEIGHT = 800,800
 class Node():
     nodes = []
     def __init__(self, layer, amount):
@@ -14,20 +14,23 @@ class Node():
         self.output = 0
         self.positionX = 0
         self.positionY = 0
-        if layer != 0 and (layer != len(nodeStructure)-1):
-            #amount of weight needs to be the same amount as in previous layer.
-            self.weight = Node.RandomWeights(nodeStructure[layer-1])
-            # Every node has a single bias.
-            self.bias = Node.RandomBiases()
+        if layer != 0:
+            # Every node that is not in the first layer has weights
+            self.weight = Node.RandomWeights(nodeStructure[layer-1]) #should also maybe have the ascosiated nodes in it as object
         else:
             self.weight = None
+        if layer != 0 and (layer != (len(nodeStructure)-1)):
+            # Every node has a single bias that is not in the first or last layer.
+            self.bias = Node.RandomBiases()
+        else:
             self.bias = None
-        self.id = amount
+        self.id = amount #number node in layer
         Node.nodes.append(self)
     def Initialize():
         for layer, nodeAmount in enumerate(nodeStructure):
             for amount in range(nodeAmount):
                 Node(layer, amount)
+
     def RandomWeights(amountWeights):
         weights = []
         for i in range(amountWeights):
@@ -49,16 +52,32 @@ class Node():
                 for idx, weight in enumerate(node.weight):
                     idx
 class Data:
-    train = None
-    test = None
+    imageSize = (28,28)
+    image = []
+    batchSize = 8 #means 7500 batches with sample size of 60000
+    batch = []
+    currentBatch = None
+    def __init__(self, pixels, label) -> None:
+        self.pixels = pixels
+        self.label = label
+        Data.image.append(self)
     def Initialize():
-        #first value is label
-        with open("Dataset/mnist/csv/mnist_train.csv", newline='') as f:
-            reader = csv.reader(f)
-            Data.train = list(reader)
-        with open("Dataset/mnist/csv/mnist_test.csv", newline='') as f:
-            reader = csv.reader(f)
-            Data.test = list(reader)
+        #load data
+        mndata = MNIST('Dataset/mnist/Samples')
+        images, labels = mndata.load_training()
+        #Create Objects for all images
+        for idx, image in enumerate(images):
+            Data(image,labels[idx])
+        #Create Random Batches
+        imageBuffer = random.sample(Data.image, len(Data.image))
+        batch = []
+        for image in imageBuffer:
+            batch.append(image)
+            if len(batch) == Data.batchSize:
+                Data.batch.append(batch)
+                batch = []
+        #select random batch
+        Data.currentBatch = random.randint(0, len(Data.batch)-1)
 class Render:
     global WHITE
     WHITE = (255,255,255)
@@ -74,37 +93,66 @@ class Render:
         neuralNetworkSize = (400, 400)
         neuralNetworkSurface = pygame.Surface(neuralNetworkSize)
         neuralNetworkPosition = (0,0)
-        neuronRadius = 5
+        neuronRadius = 10
         
         for idx, node in enumerate(Node.nodes):
             #Print all neurons
             #color should be represantative of bias
-                node.positionX = ((neuralNetworkSize[0])/(len(nodeStructure)+1))*(node.layer+1)
-                node.positionY = ((neuralNetworkSize[1])/(nodeStructure[node.layer]+1))*(node.id+1)
-                pygame.draw.circle(neuralNetworkSurface, WHITE, (node.positionX, node.positionY), neuronRadius)
-        #print all links
-        #color should be representative of weight
-        for idx, node in enumerate(Node.nodes):
-            for idx, toNode in enumerate(Node.nodes):
-                if toNode.layer == node.layer+1:
-                    pygame.draw.line(neuralNetworkSurface, WHITE, (node.positionX, node.positionY), (toNode.positionX, toNode.positionY))
-        
-        #for data visualization
-        dataSize = (100,100)
+            node.positionX = ((neuralNetworkSize[0])/(len(nodeStructure)+1))*(node.layer+1)
+            node.positionY = ((neuralNetworkSize[1])/(nodeStructure[node.layer]+1))*(node.id+1)
+            pygame.draw.circle(neuralNetworkSurface, WHITE, (node.positionX, node.positionY), neuronRadius)
+            #print all links
+            if node.layer != 0:
+                # for idxToNode, toNode in enumerate(Node.nodes):
+                #     if node.layer == toNode.layer-1:
+                #         #convert link weights from -3-3 to 0-255 to use as rgb value
+                #         oldRange = (3+3)  
+                #         newRange = (255+0)
+                #         print(node.weight[idxToNode])
+                #         # het probleem is dat hij het echte getal pakt ipv het relatieve als idxToNode
+                #         color = (((node.weight[idxToNode] + 3) * newRange) / oldRange)
+                #         pygame.draw.line(neuralNetworkSurface, WHITE, (node.positionX, node.positionY), (toNode.positionX, toNode.positionY))
+                if node.layer != 0:
+                    for idxWeight, weight in enumerate(node.weight):
+                        for idxToNode, toNode in enumerate(Node.nodes):
+                            if toNode.id == idxWeight:
+                                oldRange = (3+3)  
+                                newRange = (255+0)
+                                color = ((((weight + 3) * newRange) / oldRange), (((weight + 3) * newRange) / oldRange), (((weight + 3) * newRange) / oldRange))
+                                pygame.draw.line(neuralNetworkSurface, color, (node.positionX, node.positionY), (toNode.positionX, toNode.positionY))
+
+        #for data visualization image
+        dataSize = (800,800)
+        dataPosition = (60,650)
         dataSurface = pygame.Surface(dataSize)
-        dataPosition = (400,400)
-        labelText = FONT.render(Data.train[0][0],False, WHITE)
-        dataSurface.blit(labelText, (50,50))
+
+        for imageNumber, image in enumerate(Data.batch[Data.currentBatch]):
+            numberSurface = pygame.Surface(Data.imageSize)
+            numberSizeMultiplier = 3
+            for idx, pixel in enumerate(image.pixels):
+                pos = ((idx%Data.imageSize[0]),(idx//Data.imageSize[1]))
+                color = (pixel,pixel,pixel)
+                numberSurface.fill(color, (pos,(1,1)))
+            numberSurface = pygame.transform.scale(numberSurface, (Data.imageSize[0]*numberSizeMultiplier,Data.imageSize[1]*numberSizeMultiplier))
+            labelText = FONT.render(str(image.label),False, WHITE)
+            dataSurface.blit(labelText, ((imageNumber*Data.imageSize[0]*numberSizeMultiplier)+(Data.imageSize[0]),Data.imageSize[1]*numberSizeMultiplier))
+            dataSurface.blit(numberSurface, (imageNumber*Data.imageSize[0]*numberSizeMultiplier,0))
+
+
         #draw all surfaces to the screen
         SCREEN.blit(neuralNetworkSurface, neuralNetworkPosition)
         SCREEN.blit(dataSurface, dataPosition)
-
+    def ColorFilter(color): #input is RGB tuple currently pretty shit
+        r = color[0]
+        g = color[1]
+        b = color[2]
+        changedColor = ((255/(1+(math.e**(r*0.01)+1))),(255/(1+(math.e**(-g*0.02)+2))),(255/(1+(math.e**(-b*0.03)+3))))
+        return changedColor
 
 def Initialize():
     Render.Initialize()
     Node.Initialize()
     Data.Initialize()
-
 
 Initialize()
 run = True
