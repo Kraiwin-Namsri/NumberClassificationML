@@ -1,10 +1,11 @@
+from lib2to3.pygram import python_grammar
 import random
 import math
 import pygame
 from mnist import MNIST
 
 #first and last are input and output nodes, so no w+b apply
-nodeStructure = [1,2,3]
+nodeStructure = [784,28,10]
 WINDOW_SIZE = WIDTH, HEIGHT = 800,800
 class Node():
     nodes = []
@@ -43,14 +44,26 @@ class Node():
         return random.uniform(-3,3)
     def SquashingFunction(value):
         return 1/(1+(math.e**-value))
-    def Update(inputs):
-        for idx, node in enumerate(Node.nodes):
+    def Update(rawInputs):
+        inputs = []
+        for rawInput in rawInputs:
+            inputs.append(rawInput/255)
+        #put the input in the input nodes.
+        for i in range(0, Data.imageSize[0]*Data.imageSize[1]):
+            Node.nodes[i].input = inputs[i]
+        #update all nodes sequentually
+        for node in Node.nodes: #Remember that nodes are correctly sorted
             if node.layer == 0:
-                node.input = inputs[idx]
+                node.output = node.input #input and nodes don't have weights nor biases
             else:
-                sum = 0
-                for idx, weight in enumerate(node.weight):
-                    idx
+                weightedSum = 0
+                #every node only has a single bias if it has one
+                if node.layer != (len(nodeStructure)-1):
+                    weightedSum += node.bias
+                for prevNode in Node.nodes:
+                    if node.layer == prevNode.layer-1:
+                        weightedSum += prevNode.output*node.weight[prevNode.id]
+                node.output = Node.SquashingFunction(weightedSum)
 class Data:
     imageSize = (28,28)
     image = []
@@ -81,6 +94,7 @@ class Data:
 class Render:
     global WHITE
     WHITE = (255,255,255)
+    global highest
     def Initialize():
         pygame.display.init()
         global SCREEN
@@ -92,35 +106,32 @@ class Render:
         #draw NN to surface
         neuralNetworkSize = (400, 400)
         neuralNetworkSurface = pygame.Surface(neuralNetworkSize)
+        weightsSurface = pygame.Surface(neuralNetworkSize, pygame.SRCALPHA, 32)
+        neuronsSurface = pygame.Surface(neuralNetworkSize, pygame.SRCALPHA, 32)
         neuralNetworkPosition = (0,0)
-        neuronRadius = 10
+        neuronRadius = 15
         
         for idx, node in enumerate(Node.nodes):
             #Print all neurons
             #color should be represantative of bias
             node.positionX = ((neuralNetworkSize[0])/(len(nodeStructure)+1))*(node.layer+1)
             node.positionY = ((neuralNetworkSize[1])/(nodeStructure[node.layer]+1))*(node.id+1)
-            pygame.draw.circle(neuralNetworkSurface, WHITE, (node.positionX, node.positionY), neuronRadius)
-            #print all links
-            if node.layer != 0:
-                # for idxToNode, toNode in enumerate(Node.nodes):
-                #     if node.layer == toNode.layer-1:
-                #         #convert link weights from -3-3 to 0-255 to use as rgb value
-                #         oldRange = (3+3)  
-                #         newRange = (255+0)
-                #         print(node.weight[idxToNode])
-                #         # het probleem is dat hij het echte getal pakt ipv het relatieve als idxToNode
-                #         color = (((node.weight[idxToNode] + 3) * newRange) / oldRange)
-                #         pygame.draw.line(neuralNetworkSurface, WHITE, (node.positionX, node.positionY), (toNode.positionX, toNode.positionY))
-                if node.layer != 0:
-                    for idxWeight, weight in enumerate(node.weight):
-                        for idxToNode, toNode in enumerate(Node.nodes):
-                            if toNode.id == idxWeight:
-                                oldRange = (3+3)  
-                                newRange = (255+0)
-                                color = ((((weight + 3) * newRange) / oldRange), (((weight + 3) * newRange) / oldRange), (((weight + 3) * newRange) / oldRange))
-                                pygame.draw.line(neuralNetworkSurface, color, (node.positionX, node.positionY), (toNode.positionX, toNode.positionY))
+            color = (node.output*255,node.output*255,node.output*255)
+            pygame.draw.circle(neuronsSurface, color, (node.positionX, node.positionY), neuronRadius)
 
+            if node.layer != 0:
+                for idxWeight, weight in enumerate(node.weight):
+                    for idxToNode, toNode in enumerate(Node.nodes):
+                        if toNode.id == idxWeight and toNode.layer == node.layer -1:
+                            oldRange = (3+3)  
+                            newRange = (255+0)
+                            color = ((((weight + 3) * newRange) / oldRange), (((weight + 3) * newRange) / oldRange), (((weight + 3) * newRange) / oldRange))
+                            pygame.draw.line(weightsSurface, color, (node.positionX, node.positionY), (toNode.positionX, toNode.positionY))
+
+            #Neurons on top of Weights:
+            neuralNetworkSurface.blit(weightsSurface, (0,0))
+            neuralNetworkSurface.blit(neuronsSurface, (0,0))
+            
         #for data visualization image
         dataSize = (800,800)
         dataPosition = (60,650)
@@ -157,8 +168,10 @@ def Initialize():
 Initialize()
 run = True
 while run:
+    Node.Update(Data.batch[0][0].pixels)
     Render.DrawWindow()
     pygame.display.update()
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             run = False
+    
