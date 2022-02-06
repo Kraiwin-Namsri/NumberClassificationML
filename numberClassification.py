@@ -1,4 +1,3 @@
-from lib2to3.pygram import python_grammar
 import random
 import math
 import pygame
@@ -9,6 +8,7 @@ nodeStructure = [784,28,10]
 WINDOW_SIZE = WIDTH, HEIGHT = 800,800
 class Node():
     nodes = []
+    outputNodes = []
     def __init__(self, layer, amount):
         self.layer = layer
         self.input = 0
@@ -30,8 +30,9 @@ class Node():
     def Initialize():
         for layer, nodeAmount in enumerate(nodeStructure):
             for amount in range(nodeAmount):
-                Node(layer, amount)
-
+                node = Node(layer, amount)
+                if node.layer == (len(nodeStructure)-1): #added later for speed
+                    Node.outputNodes.append(node)
     def RandomWeights(amountWeights):
         weights = []
         for i in range(amountWeights):
@@ -54,16 +55,33 @@ class Node():
         #update all nodes sequentually
         for node in Node.nodes: #Remember that nodes are correctly sorted
             if node.layer == 0:
-                node.output = node.input #input and nodes don't have weights nor biases
-            else:
+                #inputnodes don't have weights nor biases
+                node.output = node.input 
+            elif node.layer == (len(nodeStructure)-1):
+                #Output nodes dont have biases, but have weights
                 weightedSum = 0
-                #every node only has a single bias if it has one
-                if node.layer != (len(nodeStructure)-1):
-                    weightedSum += node.bias
                 for prevNode in Node.nodes:
-                    if node.layer == prevNode.layer-1:
+                    if node.layer == prevNode.layer+1:
                         weightedSum += prevNode.output*node.weight[prevNode.id]
-                node.output = Node.SquashingFunction(weightedSum)
+                        node.input = weightedSum
+                node.output = Node.SquashingFunction(node.input)
+            else:#normal nodes
+                weightedSum = 0
+                weightedSum += node.bias
+                for prevNode in Node.nodes:
+                    if node.layer == prevNode.layer+1:
+                        weightedSum += prevNode.output*node.weight[prevNode.id]
+                        node.input = weightedSum
+                node.output = Node.SquashingFunction(node.input)
+            #above can be coded in less lines, but now its much more readable
+            Node.FitnessFunction()
+    def FitnessFunction(): #definitely need to do some more research
+        guessValues = []
+        for node in Node.outputNodes:
+            guessValues.append(node.output)
+        highestNodeOutput = max(guessValues)
+        highestNode = guessValues.index(highestNodeOutput)
+        print(highestNode)
 class Data:
     imageSize = (28,28)
     image = []
@@ -101,7 +119,9 @@ class Render:
         SCREEN = pygame.display.set_mode(WINDOW_SIZE)
         pygame.font.init()
         global FONT
+        global FONT2
         FONT = pygame.font.SysFont('Comic Sans MS', 30)
+        FONT2 = pygame.font.SysFont('Comic Sans MS', 15)
     def DrawWindow():
         #draw NN to surface
         neuralNetworkSize = (400, 400)
@@ -110,7 +130,9 @@ class Render:
         neuronsSurface = pygame.Surface(neuralNetworkSize, pygame.SRCALPHA, 32)
         neuralNetworkPosition = (0,0)
         neuronRadius = 15
-        
+        neuronOutputTextPosition = (neuralNetworkSize[0], neuralNetworkPosition[1])
+        neuronOutputTextSize = (100, neuralNetworkSize[1])
+        neuronOutputTextSurface = pygame.Surface(neuronOutputTextSize)
         for idx, node in enumerate(Node.nodes):
             #Print all neurons
             #color should be represantative of bias
@@ -127,7 +149,9 @@ class Render:
                             newRange = (255+0)
                             color = ((((weight + 3) * newRange) / oldRange), (((weight + 3) * newRange) / oldRange), (((weight + 3) * newRange) / oldRange))
                             pygame.draw.line(weightsSurface, color, (node.positionX, node.positionY), (toNode.positionX, toNode.positionY))
-
+            if node.layer == (len(nodeStructure)-1):
+                outputText = FONT2.render(str(round(node.output*100)),False, WHITE)
+                neuronOutputTextSurface.blit(outputText, (0, node.positionY))
             #Neurons on top of Weights:
             neuralNetworkSurface.blit(weightsSurface, (0,0))
             neuralNetworkSurface.blit(neuronsSurface, (0,0))
@@ -152,6 +176,7 @@ class Render:
 
         #draw all surfaces to the screen
         SCREEN.blit(neuralNetworkSurface, neuralNetworkPosition)
+        SCREEN.blit(neuronOutputTextSurface, neuronOutputTextPosition)
         SCREEN.blit(dataSurface, dataPosition)
     def ColorFilter(color): #input is RGB tuple currently pretty shit
         r = color[0]
