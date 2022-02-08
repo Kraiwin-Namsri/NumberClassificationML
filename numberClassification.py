@@ -4,11 +4,12 @@ import pygame
 from mnist import MNIST
 
 #first and last are input and output nodes, so no w+b apply
-nodeStructure = [784,28,10]
+nodeStructure = [784,28,10] #28 is pretty random, but chosen because 28 is one dimension of the input
 WINDOW_SIZE = WIDTH, HEIGHT = 800,800
 class Node():
     nodes = []
     outputNodes = []
+    guessValues = []
     def __init__(self, layer, amount):
         self.layer = layer
         self.input = 0
@@ -45,7 +46,9 @@ class Node():
         return random.uniform(-3,3)
     def SquashingFunction(value):
         return 1/(1+(math.e**-value))
-    def Update(rawInputs):
+    def Update(objectIMG):
+        Data.currentImage = objectIMG
+        rawInputs = objectIMG.pixels
         inputs = []
         for rawInput in rawInputs:
             inputs.append(rawInput/255)
@@ -74,20 +77,35 @@ class Node():
                         node.input = weightedSum
                 node.output = Node.SquashingFunction(node.input)
             #above can be coded in less lines, but now its much more readable
-            Node.FitnessFunction()
-    def FitnessFunction(): #definitely need to do some more research
-        guessValues = []
+            Node.PercentageGuess()
+            Node.CostFunction(objectIMG)
+    def PercentageGuess():
+        guessValuesBuffer = []
+        guessSum = 0
         for node in Node.outputNodes:
-            guessValues.append(node.output)
-        highestNodeOutput = max(guessValues)
-        highestNode = guessValues.index(highestNodeOutput)
-        print(highestNode)
+            guessSum += node.output
+            guessValuesBuffer.append(node.output)
+        Node.guessValues = []
+        for value in guessValuesBuffer:
+            if guessSum != 0:
+                Node.guessValues.append(value/guessSum)
+    def CostFunction(objectIMG):
+        imageCost = []
+        for idx, node in enumerate(Node.outputNodes):
+            if objectIMG.label == idx:
+                imageCost.append((node.output-1)**2) #when its correct
+            else:
+                imageCost.append((node.output-0)**2) #When its wrong
+        Data.BatchCosts.append(imageCost)
 class Data:
     imageSize = (28,28)
     image = []
     batchSize = 8 #means 7500 batches with sample size of 60000
     batch = []
     currentBatch = None
+    availableBatches = []
+    currentImage = None
+    BatchCosts = []
     def __init__(self, pixels, label) -> None:
         self.pixels = pixels
         self.label = label
@@ -108,11 +126,21 @@ class Data:
                 Data.batch.append(batch)
                 batch = []
         #select random batch
-        Data.currentBatch = random.randint(0, len(Data.batch)-1)
+        Data.availableBatches = [*range(0, len(Data.batch)-1)]
+        random.shuffle(Data.availableBatches)
+        Data.SelectRandomBatch()
+    def SelectRandomBatch():
+        Data.BatchCosts = []
+        randomIdx = random.randint(0, len(Data.availableBatches)-1)
+        Data.currentBatch = Data.availableBatches[random.randint(0, len(Data.availableBatches)-1)]
+        Data.availableBatches.pop(randomIdx)
+        
 class Render:
     global WHITE
     WHITE = (255,255,255)
     global highest
+    global GREEN
+    GREEN = (0, 255,0)
     def Initialize():
         pygame.display.init()
         global SCREEN
@@ -150,7 +178,7 @@ class Render:
                             color = ((((weight + 3) * newRange) / oldRange), (((weight + 3) * newRange) / oldRange), (((weight + 3) * newRange) / oldRange))
                             pygame.draw.line(weightsSurface, color, (node.positionX, node.positionY), (toNode.positionX, toNode.positionY))
             if node.layer == (len(nodeStructure)-1):
-                outputText = FONT2.render(str(round(node.output*100)),False, WHITE)
+                outputText = FONT2.render(str(node.id)+": "+str(round(Node.guessValues[node.id]*100))+"%",False, WHITE)
                 neuronOutputTextSurface.blit(outputText, (0, node.positionY))
             #Neurons on top of Weights:
             neuralNetworkSurface.blit(weightsSurface, (0,0))
@@ -169,15 +197,36 @@ class Render:
                 color = (pixel,pixel,pixel)
                 numberSurface.fill(color, (pos,(1,1)))
             numberSurface = pygame.transform.scale(numberSurface, (Data.imageSize[0]*numberSizeMultiplier,Data.imageSize[1]*numberSizeMultiplier))
-            labelText = FONT.render(str(image.label),False, WHITE)
-            dataSurface.blit(labelText, ((imageNumber*Data.imageSize[0]*numberSizeMultiplier)+(Data.imageSize[0]),Data.imageSize[1]*numberSizeMultiplier))
-            dataSurface.blit(numberSurface, (imageNumber*Data.imageSize[0]*numberSizeMultiplier,0))
-
+            labelText = FONT.render(" "+str(image.label),False, WHITE)# for the centering :)
+            labelPosition = ((imageNumber*Data.imageSize[0]*numberSizeMultiplier)+(Data.imageSize[0]),Data.imageSize[1]*numberSizeMultiplier)
+            numberPosition = (imageNumber*Data.imageSize[0]*numberSizeMultiplier,0)
+            #To see wich one is inputted into the NN
+            inputSurface = pygame.Surface((dataSize[0],10))
+            if image == Data.currentImage:
+                pygame.draw.rect(inputSurface, GREEN, pygame.Rect(0,0,55,10))
+            dataSurface.blit(inputSurface, (labelPosition[0]-10, labelPosition[1]+40))
+            dataSurface.blit(labelText, labelPosition)
+            dataSurface.blit(numberSurface, numberPosition)
+        
+        #Draw Costs as text
+        costSize = (800,40)
+        costPosition = (0,400)
+        costSurface = pygame.Surface(costSize)
+        sumImages = 0
+        #definetly not correct
+        buffer = []
+        for image in Data.BatchCosts:
+            for cost in image:
+                buffer.append(cost)
+        average = sum(buffer)/len(buffer)
+        batchCostText = FONT2.render("BatchCost: "+str(average),False, WHITE)
+        costSurface.blit(batchCostText, (0,0))
 
         #draw all surfaces to the screen
         SCREEN.blit(neuralNetworkSurface, neuralNetworkPosition)
         SCREEN.blit(neuronOutputTextSurface, neuronOutputTextPosition)
         SCREEN.blit(dataSurface, dataPosition)
+        SCREEN.blit(costSurface, costPosition)
     def ColorFilter(color): #input is RGB tuple currently pretty shit
         r = color[0]
         g = color[1]
@@ -192,11 +241,16 @@ def Initialize():
 
 Initialize()
 run = True
+image = 0
 while run:
-    Node.Update(Data.batch[0][0].pixels)
+    Node.Update(Data.batch[Data.currentBatch][image])
     Render.DrawWindow()
     pygame.display.update()
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             run = False
-    
+    #update te current image
+    image += 1
+    if image > len(Data.batch[Data.currentBatch])-1:
+        image = 0
+        Data.SelectRandomBatch()
